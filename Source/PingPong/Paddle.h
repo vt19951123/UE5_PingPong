@@ -32,6 +32,6 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 private:
-	void ClampMovement();
+	FVector ClampMovement(const FVector& inputVector);
 
 };
