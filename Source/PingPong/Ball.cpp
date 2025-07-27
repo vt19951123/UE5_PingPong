@@ -1,134 +1,127 @@
 ﻿#include "Ball.h"
-#include "Components/StaticMeshComponent.h" // Thêm để sử dụng UStaticMeshComponent
-#include "Kismet/GameplayStatics.h" // Thêm để sử dụng các hàm gameplay tĩnh
+#include "Components/StaticMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 ABall::ABall()
 {
-	PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bCanEverTick = true;
 
-	SetupSphereCollision();                         
-	SetupBallMesh();
-	SetupProjectileMovement();
-	LoadDefaultBallMesh();
+    // ✅ BallMesh làm root component
+    BallMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BallMesh"));
+    RootComponent = BallMesh;
 
+    // Load default mesh
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMeshAsset(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+    if (SphereMeshAsset.Succeeded())
+    {
+        BallMesh->SetStaticMesh(SphereMeshAsset.Object);
+        BallMesh->SetRelativeScale3D(FVector(0.3f));
+    }
+
+    SetupBallCollision();
+    SetupProjectileMovement();
 }
 
-void ABall::BeginPlay()
+void ABall::SetupBallCollision()
 {
-	Super::BeginPlay();
-	
-	// Add function OnHit into collision Event
-	SphereCollision->OnComponentHit.AddDynamic(this, &ABall::OnHit);
+    // ✅ BallMesh collision settings
+    BallMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    BallMesh->SetCollisionProfileName(TEXT("BlockAll"));
+    BallMesh->SetSimulatePhysics(false);
+    BallMesh->SetEnableGravity(false);
+    BallMesh->SetMobility(EComponentMobility::Movable);
+    BallMesh->SetNotifyRigidBodyCollision(true);
 
-	InitialBallLocation = GetActorLocation();
-
-	SetInitialProperties();
-
-	// --- DÒNG CODE TEST TẠM THỜI ---
-	// Chờ 2 giây rồi mới phóng bóng
-	FTimerHandle TimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]()
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("Timer end........."));
-
-			// Phóng bóng theo hướng ngẫu nhiên trên mặt phẳng XY
-			const float LaunchSpeed = 1000.0f;
-			const float RandX = FMath::FRandRange(-0.5f, 0.5f);
-			const float RandY = FMath::RandBool() ? 1.0f : -1.0f;
-			FVector LaunchVelocity = FVector(RandX, RandY, 0.0f);
-			LaunchVelocity.Normalize();
-			LaunchVelocity *= LaunchSpeed;
-
-			LaunchBall(LaunchVelocity);
-
-		}, 2.0f, false);
-	// ------------------------------------
-
-}
-
-void ABall::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-
-void ABall::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
-{
-	UE_LOG(LogTemp, Warning, TEXT("OnHit......................................"));
-}
-
-void ABall::LaunchBall(FVector InitialVelocity)
-{
-	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("LaunchBall........."));
-	if (ProjectileMovement) {
-		// Đặt lại vận tốc về 0 trước khi phóng để tránh cộng dồn nếu hàm được gọi nhiều lần
-		ProjectileMovement->Velocity = FVector::ZeroVector;
-		ProjectileMovement->SetVelocityInLocalSpace(InitialVelocity);
-		//GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("Ball launched with velocity: %s"), *InitialVelocity.ToString());
-		 UE_LOG(LogTemp, Warning, TEXT("Ball launched with velocity: %s"), *InitialVelocity.ToString());
-	}
-}
-
-void ABall::ResetBall()
-{
-}
-
-void ABall::SetInitialProperties()
-{
-	if (ProjectileMovement) {
-		ProjectileMovement->Velocity = FVector::ZeroVector;
-		ProjectileMovement->InitialSpeed = 0.0f;	
-	}
-}
-
-void ABall::LoadDefaultBallMesh()
-{
-	// Load default mesh cho BallMesh (ví dụ: Sphere)
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMeshAsset(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
-	if (SphereMeshAsset.Succeeded())
-	{
-		BallMesh->SetStaticMesh(SphereMeshAsset.Object);
-		BallMesh->SetRelativeScale3D(FVector(0.3f)); // Điều chỉnh kích thước mesh cho phù hợp
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Failed to load default sphere mesh for ball"));
-	}
+    // Bind collision event
+    BallMesh->OnComponentHit.AddDynamic(this, &ABall::OnHit);
 }
 
 void ABall::SetupProjectileMovement()
 {
-	// Tạo Projectile Movement Component
-	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
-	ProjectileMovement->UpdatedComponent = RootComponent; // Component này sẽ cập nhật vị trí của RootComponent (SphereCollision)
-	ProjectileMovement->InitialSpeed = 0.f;               // Tốc độ ban đầu
-	ProjectileMovement->MaxSpeed = 3000.0f;               // Tốc độ tối đa
-	ProjectileMovement->bRotationFollowsVelocity = false; // Bóng không cần xoay theo hướng di chuyển
-	ProjectileMovement->bShouldBounce = true;             // Bật tính năng nảy
-	ProjectileMovement->Bounciness = 1.0f;                // Độ nảy (1.0f là nảy hoàn hảo)
-	ProjectileMovement->ProjectileGravityScale = 0.0f;    // Không có trọng lực ảnh hưởng đến projectile
-	ProjectileMovement->Friction = 0.0f;                  // Ma sát bằng 0
-	ProjectileMovement->Velocity = FVector::ZeroVector;   // Vận tốc ban đầu là zero
+    ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
+    ProjectileMovement->UpdatedComponent = BallMesh; // ✅ Direct reference to BallMesh
+    ProjectileMovement->InitialSpeed = 1000.f;
+    ProjectileMovement->MaxSpeed = 3000.0f;
+    ProjectileMovement->bRotationFollowsVelocity = false;
+    ProjectileMovement->bShouldBounce = true;
+    ProjectileMovement->Bounciness = 1.0f;
+    ProjectileMovement->ProjectileGravityScale = 0.0f;
+    ProjectileMovement->Friction = 0.0f;
 }
 
-void ABall::SetupSphereCollision()
+void ABall::BeginPlay()
 {
-	SphereCollision = CreateDefaultSubobject<USphereComponent>(TEXT("SphereCollision"));
-	RootComponent = SphereCollision;
+    Super::BeginPlay();
 
-	// Setup cho SphereCollision
-	SphereCollision->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics); // Turn on both query và physics collision
-	SphereCollision->SetCollisionProfileName(TEXT("BlockAllDynamic"));      // Use profile coliison "BlockAllDynamic"
-	SphereCollision->SetSimulatePhysics(true);                              // Turn on physic simulate
-	SphereCollision->SetEnableGravity(false);                               // Disable gravity
-	SphereCollision->SetNotifyRigidBodyCollision(true);                     // notify when has rigid body collision
-	SphereCollision->SetSphereRadius(15.0f);								// set radius for sphere
+    InitialBallLocation = GetActorLocation();
+    SetInitialProperties();
+
+    // Test timer
+    FTimerHandle TimerHandle;
+    GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]()
+        {
+            const float LaunchSpeed = 1000.0f;
+            const float RandX = FMath::FRandRange(-0.5f, 0.5f);
+            const float RandY = FMath::RandBool() ? 1.0f : -1.0f;
+            FVector LaunchVelocity = FVector(RandX, RandY, 0.0f);
+            LaunchVelocity.Normalize();
+            LaunchVelocity *= LaunchSpeed;
+
+            LaunchBall(LaunchVelocity);
+
+        }, 2.0f, false);
 }
 
-void ABall::SetupBallMesh()
+void ABall::LaunchBall(FVector InitialVelocity)
 {
-	BallMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BallMesh"));
-	BallMesh->SetupAttachment(RootComponent);
-	BallMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	BallMesh->SetSimulatePhysics(false);
+    GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("Ball LaunchBall"));
+    if (ProjectileMovement)
+    {
+        ProjectileMovement->Velocity = InitialVelocity;
+        bIsMoving = true;
+        UE_LOG(LogTemp, Warning, TEXT("Ball launched with velocity: %s"), *InitialVelocity.ToString());
+    }
+}
+
+void ABall::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    // Debug movement
+    if (bIsMoving && ProjectileMovement)
+    {
+        FVector Velocity = ProjectileMovement->Velocity;
+        if (!Velocity.IsNearlyZero(1.0f))
+        {
+            FVector Position = GetActorLocation();
+            GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::White,
+                FString::Printf(TEXT("Ball Pos: %.0f,%.0f | Vel: %.0f,%.0f"),
+                    Position.X, Position.Y, Velocity.X, Velocity.Y));
+        }
+    }
+}
+
+void ABall::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+    GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red,
+        FString::Printf(TEXT("Ball hit: %s"), OtherActor ? *OtherActor->GetName() : TEXT("Unknown")));
+    UE_LOG(LogTemp, Warning, TEXT("Ball collision with: %s"), OtherActor ? *OtherActor->GetName() : TEXT("Unknown"));
+}
+
+void ABall::SetInitialProperties()
+{
+    if (ProjectileMovement) {
+        ProjectileMovement->Velocity = FVector::ZeroVector;
+        // ✅ Không set InitialSpeed = 0
+    }
+}
+
+void ABall::ResetBall()
+{
+    SetActorLocation(InitialBallLocation);
+    if (ProjectileMovement)
+    {
+        ProjectileMovement->StopMovementImmediately();
+    }
+    bIsMoving = false;
 }

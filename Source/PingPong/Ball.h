@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -9,48 +9,39 @@
 UCLASS()
 class PINGPONG_API ABall : public AActor
 {
-	GENERATED_BODY()
-	
-public:	
-	ABall();
+    GENERATED_BODY()
 
-	void LoadDefaultBallMesh();
-
-	void SetupProjectileMovement();
-
-	void SetupSphereCollision();
-
-	void SetupBallMesh();
+public:
+    ABall();
 
 protected:
-	virtual void BeginPlay() override;
+    virtual void BeginPlay() override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UStaticMeshComponent* BallMesh;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    UStaticMeshComponent* BallMesh;
 
-	// Handle collision
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	USphereComponent* SphereCollision;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+    UProjectileMovementComponent* ProjectileMovement;
 
-	// Projectile use to manage movement
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
-	UProjectileMovementComponent* ProjectileMovement;
-
-	// Collision Event
-	UFUNCTION()
+    // Collision Event
+    UFUNCTION()
     void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
-public:	
-	virtual void Tick(float DeltaTime) override;
+public:
+    virtual void Tick(float DeltaTime) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Movement")
-	void LaunchBall(FVector InitialVelocity);
+    UFUNCTION(BlueprintCallable, Category = "Movement")
+    void LaunchBall(FVector InitialVelocity);
 
-	UFUNCTION(BlueprintCallable, Category = "Game")
-	void ResetBall();
+    UFUNCTION(BlueprintCallable, Category = "Game")
+    void ResetBall();
 
 private:
-	FVector InitialBallLocation;
-	void SetInitialProperties();
+    FVector InitialBallLocation;
+    bool bIsMoving = false;
 
+    // ✅ Thêm khai báo functions
+    void SetInitialProperties();
+    void SetupBallCollision();
+    void SetupProjectileMovement();
 };
