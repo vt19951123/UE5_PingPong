@@ -6,8 +6,8 @@ ABall::ABall()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	SetupBallMesh();
 	SetupSphereCollision();                         
+	SetupBallMesh();
 	SetupProjectileMovement();
 	LoadDefaultBallMesh();
 
@@ -17,6 +17,33 @@ void ABall::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// Add function OnHit into collision Event
+	SphereCollision->OnComponentHit.AddDynamic(this, &ABall::OnHit);
+
+	InitialBallLocation = GetActorLocation();
+
+	SetInitialProperties();
+
+	// --- DÒNG CODE TEST TẠM THỜI ---
+	// Chờ 2 giây rồi mới phóng bóng
+	FTimerHandle TimerHandle;
+	GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]()
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("Timer end........."));
+
+			// Phóng bóng theo hướng ngẫu nhiên trên mặt phẳng XY
+			const float LaunchSpeed = 1000.0f;
+			const float RandX = FMath::FRandRange(-0.5f, 0.5f);
+			const float RandY = FMath::RandBool() ? 1.0f : -1.0f;
+			FVector LaunchVelocity = FVector(RandX, RandY, 0.0f);
+			LaunchVelocity.Normalize();
+			LaunchVelocity *= LaunchSpeed;
+
+			LaunchBall(LaunchVelocity);
+
+		}, 2.0f, false);
+	// ------------------------------------
+
 }
 
 void ABall::Tick(float DeltaTime)
@@ -27,11 +54,19 @@ void ABall::Tick(float DeltaTime)
 
 void ABall::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-
+	UE_LOG(LogTemp, Warning, TEXT("OnHit......................................"));
 }
 
 void ABall::LaunchBall(FVector InitialVelocity)
 {
+	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("LaunchBall........."));
+	if (ProjectileMovement) {
+		// Đặt lại vận tốc về 0 trước khi phóng để tránh cộng dồn nếu hàm được gọi nhiều lần
+		ProjectileMovement->Velocity = FVector::ZeroVector;
+		ProjectileMovement->SetVelocityInLocalSpace(InitialVelocity);
+		//GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("Ball launched with velocity: %s"), *InitialVelocity.ToString());
+		 UE_LOG(LogTemp, Warning, TEXT("Ball launched with velocity: %s"), *InitialVelocity.ToString());
+	}
 }
 
 void ABall::ResetBall()
@@ -40,6 +75,10 @@ void ABall::ResetBall()
 
 void ABall::SetInitialProperties()
 {
+	if (ProjectileMovement) {
+		ProjectileMovement->Velocity = FVector::ZeroVector;
+		ProjectileMovement->InitialSpeed = 0.0f;	
+	}
 }
 
 void ABall::LoadDefaultBallMesh()

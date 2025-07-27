@@ -33,7 +33,7 @@ protected:
 	USphereComponent* SphereCollision;
 
 	// Projectile use to manage movement
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
 	UProjectileMovementComponent* ProjectileMovement;
 
 	// Collision Event
